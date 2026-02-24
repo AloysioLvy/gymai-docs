@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GymAI — Arquitetura</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a38;
+    --accent: #7fff6e;
+    --accent2: #6eb5ff;
+    --accent3: #ff6eb5;
+    --accent4: #ffcc6e;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --glow: rgba(127, 255, 110, 0.15);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(127,255,110,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(110,181,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 12px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  header h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  .subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  /* Tab nav */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.6s 0.2s ease both;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 10px 16px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; animation: fadeUp 0.4s ease both; }
+  .panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #3a3a50; }
+
+  /* Flow diagram styles */
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: center;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    text-align: center;
+    position: relative;
+    transition: all 0.25s;
+    cursor: default;
+    flex-shrink: 0;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .node .icon { font-size: 20px; display: block; margin-bottom: 6px; }
+  .node .label { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .node .sublabel { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  .node.green { border-color: rgba(127,255,110,0.3); background: rgba(127,255,110,0.05); }
+  .node.green:hover { border-color: rgba(127,255,110,0.6); box-shadow: 0 8px 32px rgba(127,255,110,0.08); }
+  .node.blue  { border-color: rgba(110,181,255,0.3); background: rgba(110,181,255,0.05); }
+  .node.blue:hover  { border-color: rgba(110,181,255,0.6); box-shadow: 0 8px 32px rgba(110,181,255,0.08); }
+  .node.pink  { border-color: rgba(255,110,181,0.3); background: rgba(255,110,181,0.05); }
+  .node.pink:hover  { border-color: rgba(255,110,181,0.6); box-shadow: 0 8px 32px rgba(255,110,181,0.08); }
+  .node.yellow{ border-color: rgba(255,204,110,0.3); background: rgba(255,204,110,0.05); }
+  .node.yellow:hover{ border-color: rgba(255,204,110,0.6); box-shadow: 0 8px 32px rgba(255,204,110,0.08); }
+
+  /* Arrows */
+  .arrow-v {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--border), var(--border));
+    position: relative;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+  .arrow-v::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--muted);
+  }
+  .arrow-v.accent::after { border-top-color: var(--accent); }
+
+  .arrow-h {
+    width: 32px;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .arrow-h::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    border: 4px solid transparent;
+    border-left-color: var(--muted);
+  }
+
+  .arrow-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-align: center;
+    margin: -2px 0;
+    letter-spacing: 0.05em;
+  }
+
+  /* Group box */
+  .group {
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    margin: 8px;
+    background: rgba(255,255,255,0.01);
+  }
+  .group-label {
+    position: absolute;
+    top: -10px; left: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 0 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Grid layout for overview */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .arch-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    align-items: center;
+  }
+
+  .connector-vertical {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .conn-line {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+  .conn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  /* Section heading */
+  .section-head {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Journey flow */
+  .journey {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .step-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-line {
+    grid-column: 1;
+    width: 1px;
+    height: 32px;
+    background: var(--border);
+    margin: 0 auto;
+  }
+
+  .step-body {
+    padding-bottom: 24px;
+  }
+  .step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-desc {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+  .badge.green { background: rgba(127,255,110,0.12); color: var(--accent); border: 1px solid rgba(127,255,110,0.25); }
+  .badge.blue  { background: rgba(110,181,255,0.12); color: var(--accent2); border: 1px solid rgba(110,181,255,0.25); }
+  .badge.pink  { background: rgba(255,110,181,0.12); color: var(--accent3); border: 1px solid rgba(255,110,181,0.25); }
+  .badge.yellow{ background: rgba(255,204,110,0.12); color: var(--accent4); border: 1px solid rgba(255,204,110,0.25); }
+
+  /* Data model */
+  .erd {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .entity {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .entity:hover { border-color: #3a3a50; transform: translateY(-2px); }
+
+  .entity-head {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .entity-body {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .field {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .field .type { color: #4a4a60; }
+  .field.pk .name { color: var(--accent4); }
+  .field.fk .name { color: var(--accent2); }
+
+  /* Sequence diagram */
+  .seq {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .seq-inner {
+    min-width: 700px;
+  }
+  .actors {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+  }
+  .actor {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .actor::after {
+    content: '';
+    position: absolute;
+    bottom: -16px; left: 50%;
+    width: 1px; height: 16px;
+    background: var(--border);
+  }
+
+  .msg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 6px 0;
+    position: relative;
+  }
+
+  .msg-spacer { flex: 1; }
+  .msg-line {
+    display: flex;
+    align-items: center;
+    position: relative;
+    min-width: 60px;
+  }
+  .msg-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text);
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 0 4px;
+    z-index: 2;
+  }
+  .msg-arrow {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+  }
+  .msg-arrow::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    border: 3px solid transparent;
+    border-left-color: var(--muted);
+  }
+  .msg-arrow.ret {
+    background: var(--border);
+    background-image: repeating-linear-gradient(to right, var(--border) 0, var(--border) 4px, transparent 4px, transparent 8px);
+    height: 1px;
+  }
+  .msg-arrow.ret::after { border-left-color: var(--muted); right: 0; }
+
+  .lifeline {
+    display: flex;
+    gap: 0;
+    pointer-events: none;
+    margin-top: -8px;
+  }
+  .ll {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+  .ll-line {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+    opacity: 0.4;
+  }
+
+  /* Alt box */
+  .alt-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .alt-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--accent3);
+    padding: 4px 10px;
+    background: rgba(255,110,181,0.06);
+    border-bottom: 1px solid var(--border);
+  }
+  .alt-content { padding: 8px 10px; }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .stagger > * { animation: fadeUp 0.5s ease both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.1s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.2s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.3s; }
+
+  /* Main arch diagram */
+  .main-arch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 16px 0;
+  }
+
+  .layer {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .layer-divider {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+    gap: 4px;
+    position: relative;
+  }
+  .ld-line {
+    width: 2px;
+    height: 20px;
+    background: linear-gradient(to bottom, var(--border), transparent);
+  }
+  .ld-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .multi-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+  }
+  .ma-line {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+  }
+  .ma-spread {
+    width: 60%;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+  }
+  .ma-left, .ma-right {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+    position: relative;
+  }
+  .ma-left::after, .ma-right::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--border);
+  }
+
+  .arrow-down-group {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    padding: 0 20px;
+  }
+  .adg-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .adg-line {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+  .adg-arrow {
+    width: 0; height: 0;
+    border: 4px solid transparent;
+    border-top-color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <h1>GymAI</h1>
+    <span class="tag">Arquitetura</span>
+  </header>
+  <p class="subtitle">// sistema completo — visão técnica</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('overview')">01 Visão Geral</button>
+    <button class="tab" onclick="showTab('journey')">02 Jornada</button>
+    <button class="tab" onclick="showTab('generate')">03 Geração de Treino</button>
+    <button class="tab" onclick="showTab('data')">04 Modelo de Dados</button>
+    <button class="tab" onclick="showTab('layers')">05 Camadas</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="panel active" id="panel-overview">
+    <div class="card stagger">
+      <p class="section-head">componentes principais</p>
+
+      <!-- Browser -->
+      <div class="main-arch">
+        <div class="layer">
+          <div class="node green" style="min-width:200px">
+            <span class="icon">🌐</span>
+            <span class="label">Next.js Frontend</span>
+            <span class="sublabel">:3000 — Browser</span>
+          </div>
+        </div>
+
+        <div style="width:1px;height:24px;background:var(--border);margin:0 auto"></div>
+
+        <!-- BFF -->
+        <div class="group" style="width:100%">
+          <span class="group-label">BFF — Next.js API Routes</span>
+          <div class="layer" style="gap:8px">
+            <div class="node blue" style="min-width:130px">
+              <span class="icon">🔐</span>
+              <span class="label">WorkOS Auth</span>
+              <span class="sublabel">sessão + OAuth</span>
+            </div>
+            <div class="node" style="min-width:100px">
+              <span class="label" style="font-size:10px;font-family:'DM Mono',monospace">/api/workout/generate</span>
+            </div>
+            <div class="node" style="min-width:100px">
+              <span class="label" style="font-size:10px;font-family:'DM Mono',monospace">/api/gym-profile</span>
+            </div>
+            <div class="node" style="min-width:100px">
+              <span class="label" style="font-size:10px;font-family:'DM Mono',monospace">/api/exercises/search</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:1px;height:24px;background:var(--border);margin:0 auto"></div>
+
+        <!-- Backend -->
+        <div class="group" style="width:100%">
+          <span class="group-label">⚙️ Fastify Backend :3001</span>
+          <div class="layer" style="gap:8px">
+            <div class="node pink" style="min-width:110px">
+              <span class="icon">💪</span>
+              <span class="label">Workout</span>
+              <span class="sublabel">Controller</span>
+            </div>
+            <div class="node pink" style="min-width:110px">
+              <span class="icon">🏋️</span>
+              <span class="label">GymProfile</span>
+              <span class="sublabel">Controller</span>
+            </div>
+            <div class="node pink" style="min-width:110px">
+              <span class="icon">🔍</span>
+              <span class="label">Exercise</span>
+              <span class="sublabel">Controller</span>
+            </div>
+            <div class="node pink" style="min-width:110px">
+              <span class="icon">👤</span>
+              <span class="label">User</span>
+              <span class="sublabel">Controller</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:1px;height:24px;background:var(--border);margin:0 auto"></div>
+
+        <!-- Two columns -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%">
+          <!-- Use Cases -->
+          <div class="group">
+            <span class="group-label">📦 Use Cases</span>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="node yellow" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">GenerateWorkoutUseCase</span>
+              </div>
+              <div class="node yellow" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">EnrichWithVideosUseCase</span>
+              </div>
+              <div class="node yellow" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">SearchExerciseUseCase</span>
+              </div>
+              <div class="node yellow" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">UpdateGymProfileUseCase</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Externals -->
+          <div class="group">
+            <span class="group-label">☁️ Serviços Externos</span>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="node green" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">🤖 OpenAI GPT-4o</span>
+                <span class="sublabel">via LangChain</span>
+              </div>
+              <div class="node blue" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">▶ YouTube Data API v3</span>
+              </div>
+              <div class="node blue" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">💪 ExerciseDB API</span>
+              </div>
+              <div class="node pink" style="text-align:left;padding:10px 14px">
+                <span class="label" style="font-size:11px">🔑 WorkOS OAuth/SSO</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:1px;height:24px;background:var(--border);margin:0 auto"></div>
+
+        <!-- Database -->
+        <div class="group" style="width:100%">
+          <span class="group-label">🗄️ PostgreSQL :5432</span>
+          <div class="layer" style="gap:8px;flex-wrap:wrap">
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">users</span></div>
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">gym_profiles</span></div>
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">workouts</span></div>
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">workout_exercises</span></div>
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">exercises</span></div>
+            <div class="node" style="padding:8px 14px"><span class="label" style="font-size:11px;font-family:'DM Mono',monospace">exercise_video_cache</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOURNEY -->
+  <div class="panel" id="panel-journey">
+    <div class="card">
+      <p class="section-head">jornada do usuário</p>
+      <div class="journey stagger">
+
+        <!-- Step 1 -->
+        <div class="step">
+          <div class="step-num" style="border-color:rgba(110,181,255,0.4);color:var(--accent2)">01</div>
+          <div class="step-body">
+            <div class="step-title">Acesso <span class="badge blue">FRONTEND</span></div>
+            <div class="step-desc">Usuário acessa a aplicação → verificação de sessão</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line"></div>
+          <div></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step">
+          <div class="step-num" style="border-color:rgba(255,110,181,0.4);color:var(--accent3)">02</div>
+          <div class="step-body">
+            <div class="step-title">Autenticação <span class="badge pink">WORKOS</span></div>
+            <div class="step-desc">
+              Não autenticado → redirect /login WorkOS<br>
+              OAuth SSO (Google, GitHub…) → callback → sessão criada<br>
+              POST /api/users → cria ou recupera usuário no banco
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line"></div>
+          <div></div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step">
+          <div class="step-num" style="border-color:rgba(255,204,110,0.4);color:var(--accent4)">03</div>
+          <div class="step-body">
+            <div class="step-title">Onboarding <span class="badge yellow">NOVO USUÁRIO</span></div>
+            <div class="step-desc">
+              Sem GymProfile → formulário 8 etapas<br>
+              Objetivo · Nível · Dados físicos · Dias/semana<br>
+              Equipamentos · Cardio · Lesões · Grupos musculares<br>
+              → POST /api/gym-profile salva JSON
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line"></div>
+          <div></div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step">
+          <div class="step-num" style="border-color:rgba(127,255,110,0.4);color:var(--accent)">04</div>
+          <div class="step-body">
+            <div class="step-title">Dashboard <span class="badge green">PRINCIPAL</span></div>
+            <div class="step-desc">
+              GET /api/workout/user/:userId → treinos carregados<br>
+              Seleção de treino → WorkoutResult exibido<br>
+              Busca de exercícios disponível
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-line"></div>
+          <div></div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="step">
+          <div class="step-num" style="border-color:rgba(127,255,110,0.4);color:var(--accent)">05</div>
+          <div class="step-body">
+            <div class="step-title">Gerar Treino <span class="badge green">IA</span></div>
+            <div class="step-desc">
+              Limite: máx. 2 treinos por usuário<br>
+              GPT-4o gera plano semanal em PT-BR<br>
+              YouTube enriquece cada exercício com vídeo<br>
+              Resultado salvo no PostgreSQL e exibido
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERATE -->
+  <div class="panel" id="panel-generate">
+    <div class="card">
+      <p class="section-head">fluxo de geração de treino</p>
+      <div class="seq">
+        <div class="seq-inner">
+
+          <!-- Actors -->
+          <div class="actors">
+            <div class="actor">Usuário</div>
+            <div class="actor">Next.js</div>
+            <div class="actor">BFF</div>
+            <div class="actor">Backend</div>
+            <div class="actor">GPT-4o</div>
+            <div class="actor">YouTube</div>
+            <div class="actor">PostgreSQL</div>
+          </div>
+
+          <!-- Messages as horizontal bars -->
+          <div style="padding:24px 0;display:flex;flex-direction:column;gap:12px">
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:0.5"></div>
+              <div style="flex:1;height:1px;background:linear-gradient(to right,var(--accent),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:30%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent)">Clica "Gerar Treino"</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent)"></div>
+              </div>
+              <div style="flex:5.5"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:1"></div>
+              <div style="flex:1;height:1px;background:linear-gradient(to right,var(--accent2),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:10%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent2)">POST /api/workout/generate</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent2)"></div>
+              </div>
+              <div style="flex:5"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:2"></div>
+              <div style="flex:1;height:1px;background:linear-gradient(to right,var(--accent2),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent2)">withAuth() → extrai userId</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent2)"></div>
+              </div>
+              <div style="flex:4"></div>
+            </div>
+
+            <!-- Alt box -->
+            <div class="alt-box">
+              <div class="alt-label">alt — não autenticado</div>
+              <div class="alt-content">
+                <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">BFF → 401 Unauthorized → Frontend exibe erro</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:2"></div>
+              <div style="flex:2;height:1px;background:linear-gradient(to right,var(--accent2),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:10%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent2)">POST /workout/generate {userId}</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent2)"></div>
+              </div>
+              <div style="flex:3"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:3"></div>
+              <div style="flex:4;height:1px;background:var(--border);position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">findByUserId → GymProfile</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--muted)"></div>
+              </div>
+            </div>
+
+            <!-- Alt GymProfile -->
+            <div class="alt-box">
+              <div class="alt-label">alt — GymProfile não encontrado</div>
+              <div class="alt-content">
+                <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Error 404 → Backend → BFF → Frontend exibe erro</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:3"></div>
+              <div style="flex:4;height:1px;background:var(--border);position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">findByUserId → Workouts (count)</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--muted)"></div>
+              </div>
+            </div>
+
+            <!-- Alt limit -->
+            <div class="alt-box">
+              <div class="alt-label">alt — já tem 2 treinos</div>
+              <div class="alt-content">
+                <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Error 403 → Botão bloqueado no frontend</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:3"></div>
+              <div style="flex:2;height:1px;background:linear-gradient(to right,var(--accent),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent)">generateWorkoutPlan(gymProfile)</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent)"></div>
+              </div>
+              <div style="flex:2"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:4"></div>
+              <div style="flex:2;height:1px;background:var(--border);background-image:repeating-linear-gradient(to right,var(--border) 0,var(--border) 4px,transparent 4px,transparent 8px);position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent)">JSON plano semanal (Zod)</div>
+                <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-right-color:var(--muted)"></div>
+              </div>
+              <div style="flex:1"></div>
+            </div>
+
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:4px 0;margin-left:calc(100%*4/7)">loop para cada exercício:</div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:3"></div>
+              <div style="flex:3;height:1px;background:linear-gradient(to right,var(--accent3),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent3)">searchExerciseVideo(name)</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent3)"></div>
+              </div>
+              <div style="flex:1"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:4"></div>
+              <div style="flex:2;height:1px;background:var(--border);background-image:repeating-linear-gradient(to right,var(--border) 0,var(--border) 4px,transparent 4px,transparent 8px);position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent3)">{ videoId, title, url } | null</div>
+                <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-right-color:var(--muted)"></div>
+              </div>
+              <div style="flex:1"></div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:3"></div>
+              <div style="flex:4;height:1px;background:linear-gradient(to right,var(--accent4),var(--border));position:relative">
+                <div style="position:absolute;top:-14px;left:5%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent4)">workout.create() — persiste treino + exercícios</div>
+                <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-left-color:var(--accent4)"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;height:28px;position:relative">
+              <div style="flex:1"></div>
+              <div style="flex:6;height:1px;background:var(--border);background-image:repeating-linear-gradient(to right,var(--border) 0,var(--border) 4px,transparent 4px,transparent 8px);position:relative">
+                <div style="position:absolute;top:-14px;left:50%;font-family:'DM Mono',monospace;font-size:9px;color:var(--accent)">200 OK — plano de treino exibido</div>
+                <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);border:4px solid transparent;border-right-color:var(--accent)"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Actor labels bottom -->
+          <div class="actors" style="border-top:1px solid var(--border);border-bottom:none">
+            <div class="actor" style="border:none">Usuário</div>
+            <div class="actor" style="border:none">Next.js</div>
+            <div class="actor" style="border:none">BFF</div>
+            <div class="actor" style="border:none">Backend</div>
+            <div class="actor" style="border:none">GPT-4o</div>
+            <div class="actor" style="border:none">YouTube</div>
+            <div class="actor" style="border:none">PostgreSQL</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA MODEL -->
+  <div class="panel" id="panel-data">
+    <div class="card">
+      <p class="section-head">modelo de dados — PostgreSQL</p>
+      <div class="erd stagger">
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent4)">👤 users</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field"><span class="name">email</span><span class="type">string UK</span></div>
+            <div class="field"><span class="name">firstName</span><span class="type">string</span></div>
+            <div class="field"><span class="name">lastName</span><span class="type">string</span></div>
+            <div class="field"><span class="name">createdAt</span><span class="type">datetime</span></div>
+          </div>
+        </div>
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent)">🏋️ gym_profiles</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field fk"><span class="name">userId</span><span class="type">string FK</span></div>
+            <div class="field"><span class="name">answers</span><span class="type">json</span></div>
+            <div class="field"><span class="name">formVersion</span><span class="type">string</span></div>
+            <div class="field"><span class="name">createdAt</span><span class="type">datetime</span></div>
+          </div>
+        </div>
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent2)">💪 workouts</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field"><span class="name">name</span><span class="type">string</span></div>
+            <div class="field fk"><span class="name">userId</span><span class="type">string FK</span></div>
+            <div class="field"><span class="name">status</span><span class="type">string</span></div>
+            <div class="field"><span class="name">aiOutput</span><span class="type">json</span></div>
+            <div class="field"><span class="name">createdAt</span><span class="type">datetime</span></div>
+          </div>
+        </div>
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent3)">🔗 workout_exercises</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field fk"><span class="name">workoutId</span><span class="type">string FK</span></div>
+            <div class="field fk"><span class="name">exerciseId</span><span class="type">string FK</span></div>
+            <div class="field"><span class="name">sets</span><span class="type">int</span></div>
+            <div class="field"><span class="name">reps</span><span class="type">int</span></div>
+            <div class="field"><span class="name">restSeconds</span><span class="type">int</span></div>
+            <div class="field"><span class="name">loadKg</span><span class="type">float</span></div>
+            <div class="field"><span class="name">rpe</span><span class="type">float</span></div>
+          </div>
+        </div>
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent)">🔍 exercises</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field"><span class="name">name</span><span class="type">string</span></div>
+            <div class="field"><span class="name">gifUrl</span><span class="type">string</span></div>
+            <div class="field"><span class="name">bodyPart</span><span class="type">string</span></div>
+            <div class="field"><span class="name">target</span><span class="type">string</span></div>
+            <div class="field"><span class="name">equipment</span><span class="type">string</span></div>
+          </div>
+        </div>
+
+        <div class="entity">
+          <div class="entity-head" style="color:var(--accent3)">▶ exercise_video_cache</div>
+          <div class="entity-body">
+            <div class="field pk"><span class="name">id</span><span class="type">string PK</span></div>
+            <div class="field fk"><span class="name">exerciseId</span><span class="type">string FK</span></div>
+            <div class="field"><span class="name">videoId</span><span class="type">string</span></div>
+            <div class="field"><span class="name">title</span><span class="type">string</span></div>
+            <div class="field"><span class="name">url</span><span class="type">string</span></div>
+            <div class="field"><span class="name">cachedAt</span><span class="type">datetime</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Relationships -->
+      <div style="margin-top:24px">
+        <p class="section-head">relacionamentos</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px">
+            <span style="color:var(--accent4)">users</span>
+            <span style="color:var(--muted)">||—o|</span>
+            <span style="color:var(--accent)">gym_profiles</span>
+            <span style="color:var(--muted)">: tem</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px">
+            <span style="color:var(--accent4)">users</span>
+            <span style="color:var(--muted)">||—o{</span>
+            <span style="color:var(--accent2)">workouts</span>
+            <span style="color:var(--muted)">: gera (máx. 2)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px">
+            <span style="color:var(--accent2)">workouts</span>
+            <span style="color:var(--muted)">||—o{</span>
+            <span style="color:var(--accent3)">workout_exercises</span>
+            <span style="color:var(--muted)">: contém</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px">
+            <span style="color:var(--accent)">exercises</span>
+            <span style="color:var(--muted)">||—o{</span>
+            <span style="color:var(--accent3)">workout_exercises</span>
+            <span style="color:var(--muted)">: referenciado em</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px">
+            <span style="color:var(--accent)">exercises</span>
+            <span style="color:var(--muted)">||—o|</span>
+            <span style="color:var(--accent3)">exercise_video_cache</span>
+            <span style="color:var(--muted)">: tem vídeo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYERS -->
+  <div class="panel" id="panel-layers">
+    <div class="card">
+      <p class="section-head">camadas — backend DDD</p>
+      <div style="display:flex;flex-direction:column;gap:16px" class="stagger">
+
+        <!-- Interface -->
+        <div class="group" style="border-color:rgba(110,181,255,0.3)">
+          <span class="group-label" style="color:var(--accent2)">Interface Layer — HTTP</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="node blue"><span class="label">Fastify Routes</span></div>
+            <div class="arrow-h"></div>
+            <div class="node blue"><span class="label">Controllers</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center"><div style="width:1px;height:20px;background:var(--border)"></div></div>
+
+        <!-- Application -->
+        <div class="group" style="border-color:rgba(127,255,110,0.3)">
+          <span class="group-label" style="color:var(--accent)">Application Layer</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="node green"><span class="label">Use Cases</span></div>
+            <div class="node green"><span class="label">DTOs</span></div>
+            <div class="node green"><span class="label">Provider Interfaces</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center"><div style="width:1px;height:20px;background:var(--border)"></div></div>
+
+        <!-- Domain -->
+        <div class="group" style="border-color:rgba(255,204,110,0.3)">
+          <span class="group-label" style="color:var(--accent4)">Domain Layer</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="node yellow"><span class="label">Aggregates</span><span class="sublabel">User, Workout, GymProfile</span></div>
+            <div class="node yellow"><span class="label">Repository Interfaces</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center"><div style="width:1px;height:20px;background:var(--border)"></div></div>
+
+        <!-- Infrastructure -->
+        <div class="group" style="border-color:rgba(255,110,181,0.3)">
+          <span class="group-label" style="color:var(--accent3)">Infrastructure Layer</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="node pink"><span class="label">Prisma Repos</span></div>
+            <div class="node pink"><span class="label">LangChain Provider</span><span class="sublabel">GPT-4o</span></div>
+            <div class="node pink"><span class="label">YouTube Provider</span></div>
+            <div class="node pink"><span class="label">Prisma Client</span></div>
+          </div>
+        </div>
+
+        <!-- IoC -->
+        <div style="display:flex;justify-content:center;margin-top:8px">
+          <div class="node" style="border-style:dashed;min-width:280px;text-align:center">
+            <span class="label" style="font-size:12px">🔗 IoC Container — Inversify</span>
+            <span class="sublabel">injeta Controllers · Use Cases · Repositories</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showTab(id) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', t.getAttribute('onclick').includes(id));
+    });
+    document.querySelectorAll('.panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + id);
+    });
+  }
+</script>
+</body>
+</html>
